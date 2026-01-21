@@ -31,6 +31,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+THRESHOLD = 0.193
+
 # ================= 2. 资源加载 =================
 @st.cache_resource
 def load_pipeline():
@@ -247,3 +249,4 @@ st.markdown(f"""
     Disclaimer: Clinical support tool only.
 </div>
 """, unsafe_allow_html=True)
+
