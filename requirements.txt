@@ -4,3 +4,5 @@ numpy
 matplotlib
 shap
 scikit-learn
+plotly
+streamlit-shap
