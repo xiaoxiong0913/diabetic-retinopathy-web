@@ -1,8 +1,6 @@
-Flask
-pandas
-scikit-learn
-numpy
-Werkzeug
 streamlit
-requests
-httpx
+pandas
+numpy
+matplotlib
+shap
+scikit-learn
