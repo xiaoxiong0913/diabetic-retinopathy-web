@@ -3,6 +3,6 @@ pandas
 numpy
 matplotlib
 shap
-scikit-learn
 plotly
 streamlit-shap
+scikit-learn>=1.4.0
