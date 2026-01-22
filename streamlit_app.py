@@ -75,9 +75,9 @@ with intro_cols[0]:
     <div class='protocol-card info-card'>
         <h4 style='color:#17a2b8;'>Model Specifications</h4>
         <ul>
-            <li><b>Algorithm:</b> Naive Bayes Classifier</li>
-            <li><b>Cohort:</b> Multi-center DR Registry (N=390)</li>
-            <li><b>Performance:</b> AUC 0.771 (Validated)</li>
+            <li><b>Algorithm:</b> Naive Bayes</li>
+            <li><b>Cohort:</b> Multi-center DR Registry </li>
+            <li><b>Performance:</b> AUC 0.90 (Validated)</li>
             <li><b>Outcome:</b> 3-Year MACE (MI, Stroke, CV Death)</li>
         </ul>
     </div>
@@ -345,3 +345,4 @@ st.markdown("""
     Deployed by Yichang Central People's Hospital
 </div>
 """, unsafe_allow_html=True)
+
