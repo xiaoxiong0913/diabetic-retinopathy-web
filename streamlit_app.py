@@ -14,10 +14,10 @@ st.set_page_config(
     layout="wide"
 )
 
-# 阈值设定 (基于 Manuscript 最佳截断值)
+# 阈值设定
 THRESHOLD = 0.193
 
-# ================= 2. 专业 CSS 样式 (复刻 STEMI 风格) =================
+# ================= 2. 专业 CSS 样式 =================
 st.markdown("""
 <style>
     /* 全局背景 */
@@ -45,17 +45,6 @@ st.markdown("""
     /* 列表样式 */
     ul { padding-left: 20px; margin-bottom: 0; color: #444; font-size: 0.95em; }
     li { margin-bottom: 5px; }
-    
-    /* 结果大卡片 */
-    .result-box {
-        text-align: center;
-        padding: 20px;
-        background: white;
-        border-radius: 10px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    }
-    .metric-value { font-size: 2.5em; font-weight: bold; }
-    .metric-label { color: #666; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -75,11 +64,10 @@ def load_pipeline():
 
 model, scaler, imputer = load_pipeline()
 
-# ================= 4. 项目介绍 (Refined Introduction) =================
+# ================= 4. 项目介绍 =================
 st.title("🏥 DR-MACE Risk Stratification System")
 st.markdown("### 3-Year Major Adverse Cardiovascular Events Prediction in Diabetic Retinopathy")
 
-# 使用 STEMI 代码的卡片布局来介绍项目
 intro_cols = st.columns([2, 3])
 
 with intro_cols[0]:
@@ -117,15 +105,14 @@ if model:
         st.header("📋 Patient Demographics & Labs")
         
         with st.form("input_form"):
-            # 性别 (决定 HGB 阈值)
             st.markdown("**Demographics**")
             gender = st.radio("Gender", ["Male", "Female"], horizontal=True)
             
             st.markdown("---")
             st.markdown("**Laboratory & Vitals**")
             
-            # BUN
             inputs = {}
+            # BUN
             inputs['BUN(mmol/L)'] = st.number_input(
                 "Blood Urea Nitrogen (BUN)", 
                 min_value=0.0, max_value=100.0, 
@@ -141,7 +128,7 @@ if model:
                 help="Target: <140 mmHg (General), <130 mmHg (Intensive)"
             )
             
-            # HGB (动态参考值)
+            # HGB
             hgb_ref = "130-175" if gender == "Male" else "120-155"
             inputs['HGB(g/L)'] = st.number_input(
                 f"Hemoglobin (Ref: {hgb_ref})",
@@ -154,7 +141,7 @@ if model:
             st.markdown("---")
             st.markdown("**ECG & Medication**")
             
-            # T Wave
+            # T Wave (列名必须完全匹配)
             t_col = 'T wave  abnormalities' 
             inputs[t_col] = st.selectbox(
                 "T-Wave Abnormalities",
@@ -176,6 +163,7 @@ if model and run_pred:
     # --- 预处理 ---
     try:
         df_input = pd.DataFrame([inputs])
+        # 强制指定列顺序，防止列名错乱
         cols = ['BUN(mmol/L)', 'SBP(mmHg)', 'HGB(g/L)', 'T wave  abnormalities', 'Statins']
         df_input = df_input[cols]
         
@@ -191,9 +179,8 @@ if model and run_pred:
     # --- 布局：左侧仪表盘，右侧临床建议 ---
     res_col1, res_col2 = st.columns([2, 3])
     
-    # === 左侧：Plotly 仪表盘 (视觉重心) ===
+    # === 左侧：Plotly 仪表盘 ===
     with res_col1:
-        # 定义颜色：不再非红即绿，引入过渡色
         if prob < THRESHOLD:
             gauge_color = "#28a745" # Green
             risk_label = "Low Risk Group"
@@ -227,11 +214,11 @@ if model and run_pred:
         
         st.caption(f"Risk Threshold: {THRESHOLD:.1%} (Based on Youden Index)")
 
-    # === 右侧：临床建议卡片 (专业逻辑) ===
+    # === 右侧：临床建议卡片 ===
     with res_col2:
         st.markdown("### Clinical Decision Support")
         
-        # 1. 高危警示 (Critical)
+        # 1. 高危警示
         if prob >= THRESHOLD:
             st.markdown(f"""
             <div class='protocol-card critical-card'>
@@ -254,22 +241,18 @@ if model and run_pred:
             </div>
             """, unsafe_allow_html=True)
 
-        # 2. 异常指标分析 (Lab Alerts)
+        # 2. 异常指标分析
         alerts = []
-        # 性别特异性贫血
         hgb_limit = 130 if gender == "Male" else 120
         if inputs['HGB(g/L)'] < hgb_limit:
             alerts.append(f"<b>Anemia:</b> HGB {inputs['HGB(g/L)']} g/L (<{hgb_limit}). Evaluate iron status/renal anemia.")
         
-        # 肾功能
         if inputs['BUN(mmol/L)'] > 7.1:
             alerts.append(f"<b>Renal Impairment:</b> BUN {inputs['BUN(mmol/L)']} mmol/L. Check eGFR/Creatinine.")
             
-        # 心电图
         if inputs[t_col] == 1:
             alerts.append("<b>Ischemia:</b> T-wave abnormalities detected. Correlate with clinical symptoms.")
             
-        # 血压
         if inputs['SBP(mmHg)'] >= 140:
             alerts.append(f"<b>Hypertension:</b> SBP {inputs['SBP(mmHg)']} mmHg. Intensify antihypertensive therapy.")
 
@@ -282,7 +265,7 @@ if model and run_pred:
             </div>
             """, unsafe_allow_html=True)
 
-        # 3. 药物建议 (Medication)
+        # 3. 药物建议
         if prob >= THRESHOLD and inputs['Statins'] == 0:
             st.markdown("""
             <div class='protocol-card info-card'>
@@ -294,28 +277,48 @@ if model and run_pred:
             </div>
             """, unsafe_allow_html=True)
 
-    # --- SHAP 解释 (底部) ---
+    # --- SHAP 解释 (Fix for "size 1" error) ---
     st.markdown("---")
     st.subheader("🔍 Individual Factor Contribution (SHAP Analysis)")
     
     with st.spinner("Calculating feature importance..."):
         try:
-            # 构造背景
             background = pd.DataFrame(np.zeros((1, df_scl.shape[1])), columns=cols)
             explainer = shap.KernelExplainer(model.predict_proba, background)
             shap_values = explainer.shap_values(df_scl, nsamples=100)
             
-            # 提取数据 (兼容 list/array)
+            # --- 修复核心：安全提取标量 ---
+            
+            # 1. 提取 Class 1 的 SHAP 值 (sv)
             if isinstance(shap_values, list):
                 sv = shap_values[1][0]
-                base_val = explainer.expected_value[1]
             else:
-                sv = shap_values[0]
-                base_val = explainer.expected_value
-                
-            if isinstance(base_val, np.ndarray): base_val = base_val.item()
+                # 处理 shap_values 为 3维 array 的情况 (nsamples, nfeatures, nclasses)
+                if len(shap_values.shape) == 3:
+                    sv = shap_values[0, :, 1]
+                else:
+                    sv = shap_values[0]
 
-            # 优化显示名称
+            # 2. 提取 Class 1 的 Base Value (base_val)
+            # KernelExplainer.expected_value 可能是 list, array, 或 float
+            if isinstance(explainer.expected_value, list):
+                base_val = explainer.expected_value[1]
+            elif isinstance(explainer.expected_value, np.ndarray):
+                if explainer.expected_value.shape == (2,):
+                    base_val = explainer.expected_value[1]
+                else:
+                    # 如果数组大小不是2，尝试直接取值
+                    base_val = explainer.expected_value[0] if explainer.expected_value.size == 1 else explainer.expected_value
+            else:
+                base_val = explainer.expected_value
+
+            # 3. 终极防线：确保 base_val 是 float，不是 array
+            # 这一步专门修复 "can only convert an array of size 1 to a Python scalar"
+            if hasattr(base_val, 'item'):
+                base_val = base_val.item()
+            
+            # ---------------------------
+
             display_names = [
                 "BUN (Renal)", "SBP (Pressure)", "HGB (Anemia)", 
                 "T-Wave (ECG)", "Statins (Meds)"
@@ -328,19 +331,17 @@ if model and run_pred:
                 feature_names=display_names
             )
             
-            # 渲染 JS 图表
             st_shap(shap.plots.force(explanation, matplotlib=False))
             st.caption("Visualizing the 'Push and Pull' of risk factors. Red bars increase risk; Blue bars decrease risk.")
             
         except Exception as e:
             st.warning(f"Feature analysis unavailable: {e}")
 
-# ================= 7. 页脚 =================
+# ================= 7. 页脚 (Customized) =================
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #6c757d; font-size: 0.85em;'>
-    <b>Scientific Reference:</b> <i>Machine Learning for MACE Prediction in Diabetic Retinopathy (Manuscript v1.10)</i><br>
-    Model: Naive Bayes (Calibrated) | Validation Cohort: N=390 | AUC: 0.771<br>
-    &copy; 2024 Clinical Decision Support System. For Research Use Only.
+    <b>Scientific Reference:</b> <i>Machine Learning for MACE Prediction in Diabetic Retinopathy</i><br>
+    Deployed by Yichang Central People's Hospital
 </div>
 """, unsafe_allow_html=True)
