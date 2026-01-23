@@ -5,13 +5,13 @@ import pickle
 import os
 import plotly.graph_objects as go
 import shap
-import matplotlib.pyplot as plt # 必须引入 matplotlib
+import matplotlib.pyplot as plt
 
 # ================= 1. 全局配置与阈值 =================
 st.set_page_config(
     page_title="DR-MACE Clinical Prediction Tool",
     page_icon="🏥",
-    layout="wide"
+    layout="wide" # 宽屏模式，能容纳大图
 )
 
 # 阈值设定
@@ -277,7 +277,7 @@ if model and run_pred:
             </div>
             """, unsafe_allow_html=True)
 
-    # --- SHAP 解释 (修复版：使用 Matplotlib 静态图) ---
+    # --- SHAP 解释 (视觉优化版) ---
     st.markdown("---")
     st.subheader("🔍 Individual Factor Contribution (SHAP Analysis)")
     
@@ -320,16 +320,21 @@ if model and run_pred:
                 feature_names=display_names
             )
             
-            # --- 【关键修改】使用 Matplotlib 绘制静态图 ---
-            # 这解决了 removeChild 错误，保证 100% 稳定
+            # --- 【关键修改】优化尺寸 ---
+            # 1. 强制使用 matplotlib=True 生成静态图
+            # 2. show=False 阻止其弹窗或自动显示
             shap.plots.force(explanation, matplotlib=True, show=False)
             
-            # 获取当前 figure 并渲染
+            # 3. 获取当前图形对象
             fig = plt.gcf()
-            # 调整一下尺寸让它在 Streamlit 里好看点
-            fig.set_size_inches(12, 3) 
-            st.pyplot(fig, bbox_inches='tight')
-            plt.clf() # 清除画布，防止重叠
+            
+            # 4. 【核心优化】设置合理的宽高比 (10x2 英寸) 
+            # 这样既不会太宽导致字太小，也不会太高占满屏幕
+            fig.set_size_inches(10, 2.5) 
+            
+            # 5. 使用 bbox_inches='tight' 去除多余白边
+            st.pyplot(fig, bbox_inches='tight', dpi=300) 
+            plt.clf()
             
             st.caption("Visualizing the 'Push and Pull' of risk factors. Red bars increase risk; Blue bars decrease risk.")
             
