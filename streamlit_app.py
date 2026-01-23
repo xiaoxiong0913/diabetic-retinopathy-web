@@ -5,7 +5,7 @@ import pickle
 import os
 import plotly.graph_objects as go
 import shap
-from streamlit_shap import st_shap
+import matplotlib.pyplot as plt # 必须引入 matplotlib
 
 # ================= 1. 全局配置与阈值 =================
 st.set_page_config(
@@ -75,9 +75,9 @@ with intro_cols[0]:
     <div class='protocol-card info-card'>
         <h4 style='color:#17a2b8;'>Model Specifications</h4>
         <ul>
-            <li><b>Algorithm:</b> Naive Bayes</li>
-            <li><b>Cohort:</b> Multi-center DR Registry </li>
-            <li><b>Performance:</b> AUC 0.90 (Validated)</li>
+            <li><b>Algorithm:</b> Naive Bayes Classifier</li>
+            <li><b>Cohort:</b> Multi-center DR Registry (N=390)</li>
+            <li><b>Performance:</b> AUC 0.771 (Validated)</li>
             <li><b>Outcome:</b> 3-Year MACE (MI, Stroke, CV Death)</li>
         </ul>
     </div>
@@ -141,7 +141,7 @@ if model:
             st.markdown("---")
             st.markdown("**ECG & Medication**")
             
-            # T Wave (列名必须完全匹配)
+            # T Wave
             t_col = 'T wave  abnormalities' 
             inputs[t_col] = st.selectbox(
                 "T-Wave Abnormalities",
@@ -163,7 +163,7 @@ if model and run_pred:
     # --- 预处理 ---
     try:
         df_input = pd.DataFrame([inputs])
-        # 强制指定列顺序，防止列名错乱
+        # 强制指定列顺序
         cols = ['BUN(mmol/L)', 'SBP(mmHg)', 'HGB(g/L)', 'T wave  abnormalities', 'Statins']
         df_input = df_input[cols]
         
@@ -277,7 +277,7 @@ if model and run_pred:
             </div>
             """, unsafe_allow_html=True)
 
-    # --- SHAP 解释 (Fix for "size 1" error) ---
+    # --- SHAP 解释 (修复版：使用 Matplotlib 静态图) ---
     st.markdown("---")
     st.subheader("🔍 Individual Factor Contribution (SHAP Analysis)")
     
@@ -287,33 +287,22 @@ if model and run_pred:
             explainer = shap.KernelExplainer(model.predict_proba, background)
             shap_values = explainer.shap_values(df_scl, nsamples=100)
             
-            # --- 修复核心：安全提取标量 ---
-            
-            # 1. 提取 Class 1 的 SHAP 值 (sv)
+            # --- 数据提取 ---
             if isinstance(shap_values, list):
                 sv = shap_values[1][0]
             else:
-                # 处理 shap_values 为 3维 array 的情况 (nsamples, nfeatures, nclasses)
                 if len(shap_values.shape) == 3:
                     sv = shap_values[0, :, 1]
                 else:
                     sv = shap_values[0]
 
-            # 2. 提取 Class 1 的 Base Value (base_val)
-            # KernelExplainer.expected_value 可能是 list, array, 或 float
             if isinstance(explainer.expected_value, list):
                 base_val = explainer.expected_value[1]
             elif isinstance(explainer.expected_value, np.ndarray):
-                if explainer.expected_value.shape == (2,):
-                    base_val = explainer.expected_value[1]
-                else:
-                    # 如果数组大小不是2，尝试直接取值
-                    base_val = explainer.expected_value[0] if explainer.expected_value.size == 1 else explainer.expected_value
+                base_val = explainer.expected_value[1] if explainer.expected_value.shape == (2,) else explainer.expected_value[0]
             else:
                 base_val = explainer.expected_value
 
-            # 3. 终极防线：确保 base_val 是 float，不是 array
-            # 这一步专门修复 "can only convert an array of size 1 to a Python scalar"
             if hasattr(base_val, 'item'):
                 base_val = base_val.item()
             
@@ -331,13 +320,23 @@ if model and run_pred:
                 feature_names=display_names
             )
             
-            st_shap(shap.plots.force(explanation, matplotlib=False))
+            # --- 【关键修改】使用 Matplotlib 绘制静态图 ---
+            # 这解决了 removeChild 错误，保证 100% 稳定
+            shap.plots.force(explanation, matplotlib=True, show=False)
+            
+            # 获取当前 figure 并渲染
+            fig = plt.gcf()
+            # 调整一下尺寸让它在 Streamlit 里好看点
+            fig.set_size_inches(12, 3) 
+            st.pyplot(fig, bbox_inches='tight')
+            plt.clf() # 清除画布，防止重叠
+            
             st.caption("Visualizing the 'Push and Pull' of risk factors. Red bars increase risk; Blue bars decrease risk.")
             
         except Exception as e:
             st.warning(f"Feature analysis unavailable: {e}")
 
-# ================= 7. 页脚 (Customized) =================
+# ================= 7. 页脚 =================
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #6c757d; font-size: 0.85em;'>
@@ -345,4 +344,3 @@ st.markdown("""
     Deployed by Yichang Central People's Hospital
 </div>
 """, unsafe_allow_html=True)
-
