@@ -5,13 +5,13 @@ import pickle
 import os
 import plotly.graph_objects as go
 import shap
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt # 必须引入 matplotlib
 
 # ================= 1. 全局配置与阈值 =================
 st.set_page_config(
     page_title="DR-MACE Clinical Prediction Tool",
     page_icon="🏥",
-    layout="wide" # 宽屏模式，能容纳大图
+    layout="wide"
 )
 
 # 阈值设定
@@ -277,7 +277,7 @@ if model and run_pred:
             </div>
             """, unsafe_allow_html=True)
 
-    # --- SHAP 解释 (视觉优化版) ---
+    # --- SHAP 解释 (经典尺寸版) ---
     st.markdown("---")
     st.subheader("🔍 Individual Factor Contribution (SHAP Analysis)")
     
@@ -287,7 +287,7 @@ if model and run_pred:
             explainer = shap.KernelExplainer(model.predict_proba, background)
             shap_values = explainer.shap_values(df_scl, nsamples=100)
             
-            # --- 数据提取 ---
+            # --- 数据提取 (兼容性处理) ---
             if isinstance(shap_values, list):
                 sv = shap_values[1][0]
             else:
@@ -305,7 +305,6 @@ if model and run_pred:
 
             if hasattr(base_val, 'item'):
                 base_val = base_val.item()
-            
             # ---------------------------
 
             display_names = [
@@ -320,20 +319,15 @@ if model and run_pred:
                 feature_names=display_names
             )
             
-            # --- 【关键修改】优化尺寸 ---
-            # 1. 强制使用 matplotlib=True 生成静态图
-            # 2. show=False 阻止其弹窗或自动显示
-            shap.plots.force(explanation, matplotlib=True, show=False)
+            # === 核心回滚：使用 Waterfall Plot 配合经典尺寸 ===
+            # 创建画布，尺寸设定为 5x4 (经典小尺寸，适合嵌入报告)
+            fig, ax = plt.subplots(figsize=(5, 4))
             
-            # 3. 获取当前图形对象
-            fig = plt.gcf()
+            # 绘制瀑布图
+            shap.plots.waterfall(explanation, max_display=5, show=False)
             
-            # 4. 【核心优化】设置合理的宽高比 (10x2 英寸) 
-            # 这样既不会太宽导致字太小，也不会太高占满屏幕
-            fig.set_size_inches(10, 2.5) 
-            
-            # 5. 使用 bbox_inches='tight' 去除多余白边
-            st.pyplot(fig, bbox_inches='tight', dpi=300) 
+            # 显示图片 (tight 裁剪白边)
+            st.pyplot(fig, bbox_inches='tight')
             plt.clf()
             
             st.caption("Visualizing the 'Push and Pull' of risk factors. Red bars increase risk; Blue bars decrease risk.")
